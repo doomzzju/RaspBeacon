@@ -1,8 +1,15 @@
 import sys, time
-from bluepy.btle import Scanner, DefaultDelegate
+import numpy as np
+from bluepy.btle import Scanner, DefaultDelegate, Peripheral
 
 discoveredDevices = []
 namedDevices = []
+rssi = []
+dev_mac_addr = '49:61:52:74:34:54'
+COUNTS = 10
+TIMECOST = 1.0
+DATANEED = 10
+DATACOLLECTED = 0
 
 class Device:  
     def __init__(self, devi, number):
@@ -52,11 +59,16 @@ class ScanDelegate(DefaultDelegate):
 
 
 class ScanDelegateTracking(DefaultDelegate): 
-
-    def __init__(self):
+    def __init__(self, addr):
         DefaultDelegate.__init__(self)
+        self.addr = addr
 
-    def handleDiscovery(self, dev, isNewDev, isNewData): pass
+    def handleDiscovery(self, dev, isNewDev, isNewData): 
+        if dev.addr == self.addr:
+            rssi.append(dev.rssi)
+            print("RSSI=%d dB, Distance=%f m" % (dev.rssi, getdistance(dev.rssi)))
+            global DATACOLLECTED
+            DATACOLLECTED += 1
 
 
 def getdistance(rssi):
@@ -72,65 +84,22 @@ def getdistance(rssi):
 
 
 scanner = Scanner().withDelegate(ScanDelegate())
-scannerTracking = Scanner().withDelegate(ScanDelegateTracking())
+scannerTracking = Scanner().withDelegate(ScanDelegateTracking(dev_mac_addr))
 
 
 def ricorsiva(distance):
-    #devices = scanner.scan(5.0)
-    #named = False
-    #selectednumber = input("Select device by digiting its number occurence: ")
-    #selecteddevice = None
-
-    #for device in discoveredDevices:
-    #    if device.number == selectednumber:
-    #        selecteddevice = device 
-
-    #for device in namedDevices:
-    #    if selecteddevice.devi.addr == device.devi.addr:
-    #        print"You choose %s" % device.name
-    #        named = True
-
-    #if not named:
-    #    print"Selezionato dispositivo con indirizzo: %s" % selecteddevice.devi.addr
-    #    devname = raw_input("Name the chosen device: ")
-    #    selecteddevice.setname(devname)
-    #    namedDevices.append(selecteddevice)
-    #    print"Given name: %s" % devname
-
-    dev_mac_addr = '49:61:52:74:34:54'
-    COUNTS = 10
-    TIMECOST = 1.0
-    DATANEED = 10
-    DATACOLLECTED = 0
-
     print"Scans are starting..."
     stop = False
-    rssi = []
     start = time.time()
     while DATACOLLECTED < DATANEED:
-        for n in range(COUNTS):  # change this value if you want more or less scans each while loop
-            devices = scannerTracking.scan(TIMECOST)  
-            for dev in devices:
-                if dev.addr == dev_mac_addr: 
-                    print("RSSI=%d dB, Distance=%f m" % (dev.rssi, getdistance(dev.rssi)))
-                    rssi.append(dev.rssi)
-                    DATACOLLECTED += 1
-                    break
+        scannerTracking.scan(TIMECOST) 
 
-        #a = raw_input("Keep tracking this device? Yes/No: ")
-        #if a == "No":
-        #    stop = True
-        #if a == "Yes":
-        #    pass
+    print('mean rssi %f' % np.mean(rssi)) 
+
     end = time.time()
     cost = end - start
     print('scan cost: ', cost, 's')
 
-    #b = raw_input("Tracking new device?: Yes/No: ")
-    #if b == "Yes":
-    #    ricorsiva()
-    #else:
-    #    return
     f = open(str(distance) + "_rssi.csv", "w+")
     f.write(str(distance) + '\n')
     f.write(str(cost) + '\n')
